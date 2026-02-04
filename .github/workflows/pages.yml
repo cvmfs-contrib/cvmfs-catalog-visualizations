@@ -77,12 +77,11 @@ jobs:
 
       - name: Generate visualization
         continue-on-error: true
-        timeout-minutes: 30
+        timeout-minutes: 120
         run: |
           catalog_visualizer "http://cvmfs-stratum-one.cern.ch/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 2MB \
-            --quiet \
             --no-browser \
             -j 8
 
