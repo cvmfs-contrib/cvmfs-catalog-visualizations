@@ -80,6 +80,7 @@ jobs:
           ulimit -n 65536
           catalog_visualizer "http://cvmfs-stratum-one.cern.ch/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
+            --stop-threshold 1TB \
             --no-browser \
             -j 8
 
