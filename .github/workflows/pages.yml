@@ -83,8 +83,8 @@ jobs:
         timeout-minutes: 120
         run: |
           ulimit -n 65536
-          # Use Cloudflare CDN endpoint (FNAL, Illinois) for faster US downloads
-          catalog_visualizer "http://s1fnal-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
+          # Use CERN stratum (has all repos) with Cloudflare CDN
+          catalog_visualizer "http://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 1000GB \
             --no-browser \
