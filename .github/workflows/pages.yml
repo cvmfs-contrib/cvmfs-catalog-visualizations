@@ -60,6 +60,11 @@ jobs:
           - sw-nightlies.hsf.org
           - unpacked.cern.ch
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
       - name: Checkout cvmfsutils
         uses: actions/checkout@v4
         with:
@@ -83,6 +88,7 @@ jobs:
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 1000GB \
             --no-browser \
+            --no-cache \
             -j 16
 
       - name: Upload artifact
