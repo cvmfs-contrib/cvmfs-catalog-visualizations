@@ -78,16 +78,27 @@ jobs:
       - name: Install cvmfsutils
         run: pip install -e .
 
+      - name: Restore previous tree cache
+        uses: actions/cache@v4
+        with:
+          path: tree-cache
+          key: tree-${{ matrix.repo }}-${{ github.run_id }}
+          restore-keys: |
+            tree-${{ matrix.repo }}-
+
       - name: Generate visualization
         continue-on-error: true
         timeout-minutes: 360
         run: |
           ulimit -n 65536
+          mkdir -p tree-cache
           catalog_visualizer "http://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.html" \
             --stop-threshold 1000GB \
             --no-browser \
-            -j 16
+            -j 16 \
+            --previous-tree "tree-cache/${{ matrix.repo }}.json" \
+            --save-tree "tree-cache/${{ matrix.repo }}.json"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
