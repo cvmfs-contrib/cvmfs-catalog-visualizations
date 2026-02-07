@@ -95,12 +95,21 @@ jobs:
             --previous-tree "tree-cache/${{ matrix.repo }}.json" \
             --save-tree "tree-cache/${{ matrix.repo }}.json"
 
+      - name: Record generation timestamp
+        if: always()
+        run: |
+          if [ -f "${{ matrix.repo }}.html" ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > "${{ matrix.repo }}.timestamp"
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: viz-${{ matrix.repo }}
-          path: "*.html"
+          path: |
+            *.html
+            *.timestamp
           if-no-files-found: ignore
           retention-days: 1
 

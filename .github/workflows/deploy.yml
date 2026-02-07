@@ -41,11 +41,12 @@ jobs:
               h1 { color: #e94560; }
               p { color: #aaa; }
               ul { list-style: none; padding: 0; }
-              li { padding: 0.5rem 0; border-bottom: 1px solid #222; }
+              li { padding: 0.5rem 0; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
               a { color: #4da6ff; text-decoration: none; }
               a:hover { text-decoration: underline; }
               .missing { color: #666; }
-              .timestamp { color: #666; font-size: 0.9rem; margin-top: 2rem; }
+              time { color: #888; font-size: 0.85rem; }
+              .status { color: #666; font-size: 0.85rem; }
             </style>
           </head>
           <body>
@@ -66,18 +67,49 @@ jobs:
                       sndlhc.cern.ch sw.hsf.org \
                       sw-nightlies.hsf.org unpacked.cern.ch; do
             if [ -f "site/${repo}.html" ]; then
-              echo "    <li><a href=\"${repo}.html\">${repo}</a></li>" >> site/index.html
+              ts=""
+              if [ -f "site/${repo}.timestamp" ]; then
+                ts=$(cat "site/${repo}.timestamp")
+              fi
+              echo "    <li><a href=\"${repo}.html\">${repo}</a><time datetime=\"${ts}\" title=\"${ts}\"></time></li>" >> site/index.html
             else
-              echo "    <li class=\"missing\">${repo} (pending)</li>" >> site/index.html
+              echo "    <li><span class=\"missing\">${repo}</span><span class=\"status\">pending</span></li>" >> site/index.html
             fi
           done
 
-          cat >> site/index.html << HTMLEOF
+          cat >> site/index.html << 'HTMLEOF'
             </ul>
-            <p class="timestamp">Generated: $(date -u '+%Y-%m-%d %H:%M UTC')</p>
+            <script>
+              function timeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                if (seconds < 60) return 'just now';
+                const intervals = [
+                  { label: 'year', seconds: 31536000 },
+                  { label: 'month', seconds: 2592000 },
+                  { label: 'week', seconds: 604800 },
+                  { label: 'day', seconds: 86400 },
+                  { label: 'hour', seconds: 3600 },
+                  { label: 'minute', seconds: 60 },
+                ];
+                for (const i of intervals) {
+                  const count = Math.floor(seconds / i.seconds);
+                  if (count >= 1) return count + ' ' + i.label + (count > 1 ? 's' : '') + ' ago';
+                }
+              }
+              document.querySelectorAll('time[datetime]').forEach(el => {
+                const dt = el.getAttribute('datetime');
+                if (!dt) return;
+                const date = new Date(dt);
+                el.textContent = timeAgo(date);
+                el.title = date.toLocaleString();
+              });
+            </script>
           </body>
           </html>
           HTMLEOF
+
+          # Clean up timestamp files so they aren't served
+          rm -f site/*.timestamp
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
