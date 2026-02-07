@@ -92,8 +92,8 @@ jobs:
             --no-cache \
             --no-browser \
             -j 16 \
-            --previous-tree "tree-cache/${{ matrix.repo }}.json" \
-            --save-tree "tree-cache/${{ matrix.repo }}.json"
+            --previous-tree "tree-cache/${{ matrix.repo }}.json.zst" \
+            --save-tree "tree-cache/${{ matrix.repo }}.json.zst"
 
       - name: Record generation timestamp
         if: always()
