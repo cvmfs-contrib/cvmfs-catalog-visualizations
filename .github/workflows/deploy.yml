@@ -1,0 +1,92 @@
+name: Deploy to GitHub Pages
+
+on:
+  repository_dispatch:
+    types: [deploy-pages]
+
+permissions:
+  pages: write
+  id-token: write
+  actions: read
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: site
+          pattern: viz-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.client_payload.run_id }}
+
+      - name: Generate index page
+        run: |
+          cat > site/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>CVMFS Catalog Visualizations</title>
+            <style>
+              body { font-family: system-ui; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #0a0a0a; color: #eee; }
+              h1 { color: #e94560; }
+              p { color: #aaa; }
+              ul { list-style: none; padding: 0; }
+              li { padding: 0.5rem 0; border-bottom: 1px solid #222; }
+              a { color: #4da6ff; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              .missing { color: #666; }
+              .timestamp { color: #666; font-size: 0.9rem; margin-top: 2rem; }
+            </style>
+          </head>
+          <body>
+            <h1>CVMFS Catalog Visualizations</h1>
+            <p>Interactive sunburst charts showing catalog hierarchy and download costs for CERN CVMFS repositories.</p>
+            <ul>
+          HTMLEOF
+
+          for repo in alice.cern.ch alice-ocdb.cern.ch amber.cern.ch ams.cern.ch \
+                      atlas.cern.ch atlas-condb.cern.ch atlas-nightlies.cern.ch \
+                      atlas-online-nightlies.cern.ch cernvm-prod.cern.ch clicdp.cern.ch \
+                      cms-bril.cern.ch cms.cern.ch cms-ci.cern.ch cms-griddata.cern.ch \
+                      cms-ib.cern.ch compass.cern.ch cvmfs-config.cern.ch delphi.cern.ch \
+                      dphep.cern.ch faser.cern.ch fcc.cern.ch geant4.cern.ch grid.cern.ch \
+                      ilc.desy.de lhcb.cern.ch lhcb-condb.cern.ch lhcbdev.cern.ch \
+                      na61.cern.ch na62.cern.ch opal.cern.ch patatrack.cern.ch \
+                      sft.cern.ch sft-nightlies.cern.ch ship.cern.ch \
+                      sndlhc.cern.ch sw.hsf.org \
+                      sw-nightlies.hsf.org unpacked.cern.ch; do
+            if [ -f "site/${repo}.html" ]; then
+              echo "    <li><a href=\"${repo}.html\">${repo}</a></li>" >> site/index.html
+            else
+              echo "    <li class=\"missing\">${repo} (pending)</li>" >> site/index.html
+            fi
+          done
+
+          cat >> site/index.html << HTMLEOF
+            </ul>
+            <p class="timestamp">Generated: $(date -u '+%Y-%m-%d %H:%M UTC')</p>
+          </body>
+          </html>
+          HTMLEOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
