@@ -29,7 +29,7 @@ jobs:
             site-
 
       - name: Prepare site directory
-        run: mkdir -p site
+        run: mkdir -p site/data
 
       - name: Download new artifacts
         uses: actions/download-artifact@v4
@@ -41,115 +41,76 @@ jobs:
           run-id: ${{ github.event.client_payload.run_id }}
         continue-on-error: true
 
-      - name: Overlay new results
+      - name: Overlay new data files
         run: |
           if [ -d new-results ]; then
-            cp -f new-results/*.html site/ 2>/dev/null || true
-            cp -f new-results/*.timestamp site/ 2>/dev/null || true
+            cp -f new-results/*.json.zst site/data/ 2>/dev/null || true
           fi
 
-      - name: Generate index page
+      - name: Checkout cvmfsutils
+        uses: actions/checkout@v4
+        with:
+          repository: chrisburr/python-cvmfsutils
+          ref: dev
+          path: cvmfsutils
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install cvmfsutils
+        run: pip install ./cvmfsutils
+
+      - name: Generate viewer page
+        run: catalog_visualizer --viewer --output site/index.html -q
+
+      - name: Generate repos.json manifest
         run: |
-          cat > site/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>CVMFS Catalog Visualizations</title>
-            <style>
-              body { font-family: system-ui; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #0a0a0a; color: #eee; }
-              h1 { color: #e94560; }
-              p { color: #aaa; }
-              ul { list-style: none; padding: 0; }
-              li { padding: 0.5rem 0; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 0.5rem; }
-              a { color: #4da6ff; text-decoration: none; }
-              a:hover { text-decoration: underline; }
-              .missing { color: #666; }
-              time { color: #888; font-size: 0.85rem; margin-left: auto; }
-              .status { color: #666; font-size: 0.85rem; margin-left: auto; }
-              .incomplete { color: #eab308; font-size: 0.8rem; }
-            </style>
-          </head>
-          <body>
-            <h1>CVMFS Catalog Visualizations</h1>
-            <p>Interactive sunburst charts showing catalog hierarchy and download costs for CERN CVMFS repositories.</p>
-            <ul>
-          HTMLEOF
-
-          for repo in alice.cern.ch alice-ocdb.cern.ch amber.cern.ch ams.cern.ch \
-                      atlas.cern.ch atlas-condb.cern.ch atlas-nightlies.cern.ch \
-                      atlas-online-nightlies.cern.ch cernvm-prod.cern.ch clicdp.cern.ch \
-                      cms-bril.cern.ch cms.cern.ch cms-ci.cern.ch cms-griddata.cern.ch \
-                      cms-ib.cern.ch compass.cern.ch cvmfs-config.cern.ch delphi.cern.ch \
-                      dphep.cern.ch faser.cern.ch fcc.cern.ch geant4.cern.ch grid.cern.ch \
-                      ilc.desy.de lhcb.cern.ch lhcb-condb.cern.ch lhcbdev.cern.ch \
-                      na61.cern.ch na62.cern.ch opal.cern.ch patatrack.cern.ch \
-                      sft.cern.ch sft-nightlies.cern.ch ship.cern.ch \
-                      sndlhc.cern.ch sw.hsf.org \
-                      sw-nightlies.hsf.org unpacked.cern.ch; do
-            if [ -f "site/${repo}.html" ]; then
-              ts=""
-              if [ -f "site/${repo}.timestamp" ]; then
-                ts=$(cat "site/${repo}.timestamp")
-              fi
-              # Detect incomplete exploration
-              badge=""
-              if grep -q '"is_large":true' "site/${repo}.html" 2>/dev/null; then
-                badge="incomplete"
-              fi
-              max=$(grep -oP 'maxCatalogs = \K\d+' "site/${repo}.html" 2>/dev/null || echo 0)
-              dl=$(grep -oP 'catalogsDownloaded = \K\d+' "site/${repo}.html" 2>/dev/null || echo 0)
-              if [ "$max" -gt 0 ] 2>/dev/null && [ "$dl" -ge "$max" ] 2>/dev/null; then
-                badge="incomplete"
-              fi
-              extra=""
-              if [ -n "$badge" ]; then
-                extra=" <span class=\"incomplete\">(incomplete)</span>"
-              fi
-              echo "    <li><a href=\"${repo}.html\">${repo}</a>${extra}<time datetime=\"${ts}\" title=\"${ts}\"></time></li>" >> site/index.html
-            else
-              echo "    <li><span class=\"missing\">${repo}</span><span class=\"status\">not yet generated</span></li>" >> site/index.html
-            fi
-          done
-
-          cat >> site/index.html << 'HTMLEOF'
-            </ul>
-            <script>
-              function timeAgo(date) {
-                const seconds = Math.floor((new Date() - date) / 1000);
-                if (seconds < 60) return 'just now';
-                const intervals = [
-                  { label: 'year', seconds: 31536000 },
-                  { label: 'month', seconds: 2592000 },
-                  { label: 'week', seconds: 604800 },
-                  { label: 'day', seconds: 86400 },
-                  { label: 'hour', seconds: 3600 },
-                  { label: 'minute', seconds: 60 },
-                ];
-                for (const i of intervals) {
-                  const count = Math.floor(seconds / i.seconds);
-                  if (count >= 1) return count + ' ' + i.label + (count > 1 ? 's' : '') + ' ago';
-                }
-              }
-              document.querySelectorAll('time[datetime]').forEach(el => {
-                const dt = el.getAttribute('datetime');
-                if (!dt) return;
-                const date = new Date(dt);
-                el.textContent = timeAgo(date);
-                el.title = date.toLocaleString();
-              });
-            </script>
-          </body>
-          </html>
-          HTMLEOF
+          python3 -c "
+          import json, os, zstandard as zstd
+          data_dir = 'site/data'
+          repos = []
+          for f in sorted(os.listdir(data_dir)):
+              if not f.endswith('.json.zst'):
+                  continue
+              path = os.path.join(data_dir, f)
+              size_bytes = os.path.getsize(path)
+              repo_name = f.removesuffix('.json.zst')
+              # Extract metadata from the envelope
+              try:
+                  raw = zstd.ZstdDecompressor().decompress(open(path, 'rb').read())
+                  envelope = json.loads(raw)
+                  generated_at = envelope.get('generated_at', '')
+                  max_catalogs = envelope.get('max_catalogs', 0)
+                  catalogs_downloaded = envelope.get('catalogs_downloaded', 0)
+                  tree = envelope.get('tree', {})
+                  # Check if incomplete
+                  incomplete = False
+                  if max_catalogs > 0 and catalogs_downloaded >= max_catalogs:
+                      incomplete = True
+                  # Check for is_large in tree (quick scan of JSON string)
+                  if not incomplete and '\"is_large\":true' in raw.decode('utf-8', errors='ignore'):
+                      incomplete = True
+              except Exception:
+                  generated_at = ''
+                  incomplete = False
+              repos.append({
+                  'name': repo_name,
+                  'generated_at': generated_at,
+                  'incomplete': incomplete,
+                  'data_file': 'data/' + f,
+                  'size_bytes': size_bytes,
+              })
+          with open('site/repos.json', 'w') as fh:
+              json.dump(repos, fh, separators=(',', ':'))
+          print(f'Generated repos.json with {len(repos)} repositories')
+          "
 
       - name: Save site cache
         uses: actions/cache/save@v4
         with:
           path: site
           key: site-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - name: Remove timestamp files before deploy
-        run: rm -f site/*.timestamp
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

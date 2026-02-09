@@ -80,14 +80,15 @@ jobs:
           restore-keys: |
             tree-${{ matrix.repo }}-
 
-      - name: Generate visualization
+      - name: Generate data file
         continue-on-error: true
         timeout-minutes: 360
         run: |
           ulimit -n 65536
           mkdir -p tree-cache
           catalog_visualizer "http://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
-            --output "${{ matrix.repo }}.html" \
+            --data-only \
+            --output "${{ matrix.repo }}.json.zst" \
             --stop-threshold 1000GB \
             --no-cache \
             --no-browser \
@@ -96,21 +97,12 @@ jobs:
             --previous-tree "tree-cache/${{ matrix.repo }}.json.zst" \
             --save-tree "tree-cache/${{ matrix.repo }}.json.zst"
 
-      - name: Record generation timestamp
-        if: always()
-        run: |
-          if [ -f "${{ matrix.repo }}.html" ]; then
-            date -u +%Y-%m-%dT%H:%M:%SZ > "${{ matrix.repo }}.timestamp"
-          fi
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: viz-${{ matrix.repo }}
-          path: |
-            *.html
-            *.timestamp
+          path: "*.json.zst"
           if-no-files-found: ignore
           retention-days: 1
 
