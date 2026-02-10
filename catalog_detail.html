@@ -857,10 +857,15 @@ header .catalog-hash {
                 .sort(function(a, b) { return b.count - a.count; })
                 .slice(0, 10);
 
+            var prefix = hierarchyNode.data.path || '/';
             var html = dirs.map(function(c) {
+                var displayPath = c.path;
+                if (prefix !== '/' && displayPath.indexOf(prefix + '/') === 0) {
+                    displayPath = displayPath.slice(prefix.length);
+                }
                 return '<div class="dir-item" data-path="' + c.path + '" title="' + c.path + '">' +
                     '<span class="dir-count" style="color: ' + entryCountColor(c.count) + '">' + formatNumber(c.count) + ':</span>' +
-                    '<span class="dir-path">' + c.path + '</span>' +
+                    '<span class="dir-path">' + displayPath + '</span>' +
                 '</div>';
             }).join('');
             document.getElementById('largest-dirs').innerHTML = html;

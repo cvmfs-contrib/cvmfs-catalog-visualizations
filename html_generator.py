@@ -167,18 +167,6 @@ header .repo-name {
     flex-shrink: 0;
 }
 
-#large-badge {
-    min-height: 1.75rem;
-    margin-top: 0.5rem;
-}
-
-.large-indicator {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    background: #e94560;
-    border-radius: 4px;
-    font-size: 0.75rem;
-}
 
 .stats {
     font-size: 0.8rem;
@@ -502,23 +490,13 @@ function initVisualization(config) {
         document.getElementById("info-depth").textContent = d.data.depth || 0;
         document.getElementById("info-hash").textContent = d.data.hash || "-";
 
-        const badge = document.getElementById("large-badge");
-        if (d.data.is_virtual) {
-            badge.innerHTML = '<span class="large-indicator" style="background: #4a5568;">Directory (no catalog)</span>';
-        } else if (d.data.is_large) {
-            badge.innerHTML = '<span class="large-indicator">Large catalog - exploration stopped</span>';
-        } else {
-            badge.innerHTML = "";
-        }
-
-        const detailRow = document.getElementById("detail-link-row");
         const detailLink = document.getElementById("detail-link");
-        if (detailRow && detailLink && d.data.hash && !d.data.is_virtual && config.repoUrl) {
+        if (detailLink && d.data.hash && !d.data.is_virtual && config.repoUrl) {
             detailLink.href = "catalog_detail.html?repo=" + encodeURIComponent(config.repoUrl) +
                 "&hash=" + encodeURIComponent(d.data.hash);
-            detailRow.style.display = "";
-        } else if (detailRow) {
-            detailRow.style.display = "none";
+            detailLink.style.display = "block";
+        } else if (detailLink) {
+            detailLink.style.display = "none";
         }
     }
 
@@ -592,12 +570,17 @@ function initVisualization(config) {
             .sort((a, b) => b.size - a.size)
             .slice(0, 10);
 
-        const listHtml = catalogs.map(c =>
-            '<div class="catalog-item" data-path="' + c.path + '" title="' + c.path + '">' +
+        const prefix = hierarchyNode.data.path || '/';
+        const listHtml = catalogs.map(c => {
+            let displayPath = c.path;
+            if (prefix !== '/' && displayPath.startsWith(prefix + '/')) {
+                displayPath = displayPath.slice(prefix.length);
+            }
+            return '<div class="catalog-item" data-path="' + c.path + '" title="' + c.path + '">' +
                 '<span class="catalog-size" style="color: ' + sizeColor(c.size) + '">' + formatBytes(c.size) + ':</span>' +
-                '<span class="catalog-path">' + c.path + '</span>' +
-            '</div>'
-        ).join('');
+                '<span class="catalog-path">' + displayPath + '</span>' +
+            '</div>';
+        }).join('');
         document.getElementById('largest-catalogs').innerHTML = listHtml;
 
         // Click to zoom in chart
@@ -733,11 +716,8 @@ _VIZ_BODY_TEMPLATE = """\
                     <span class="info-label">Hash</span>
                     <span class="info-value hash" id="info-hash" title="Click to copy">-</span>
                 </div>
-                <div id="large-badge"></div>
-                <div id="detail-link-row" style="margin-top: 0.5rem; display: none;">
-                    <a id="detail-link" href="#" target="_blank" rel="noopener"
-                       style="color: #4da6ff; font-size: 0.8rem; text-decoration: none;">View directory detail</a>
-                </div>
+                <a id="detail-link" href="#" target="_blank" rel="noopener"
+                   style="display: none; margin-top: 0.75rem; padding: 0.5rem 1rem; background: #0f3460; border: 1px solid #4da6ff; border-radius: 4px; color: #4da6ff; font-size: 0.8rem; text-decoration: none; text-align: center;">View directory detail</a>
             </div>
 
             <h2>Largest Catalogs</h2>
@@ -1169,13 +1149,17 @@ _VIEWER_JS = """\
         document.getElementById("info-cost").textContent = "-";
         document.getElementById("info-depth").textContent = "-";
         document.getElementById("info-hash").textContent = "-";
-        document.getElementById("large-badge").innerHTML = "";
+
         document.getElementById("incomplete-banner").style.display = "none";
         document.getElementById("incomplete-banner").textContent = "";
 
         // Update generated timestamp
         const statsEl = document.querySelector('.stats');
-        if (statsEl) statsEl.textContent = 'Generated: ' + envelope.generated_at;
+        if (statsEl && envelope.generated_at) {
+            const d = new Date(envelope.generated_at.replace(' ', 'T').replace(' UTC', 'Z'));
+            const relative = isNaN(d) ? envelope.generated_at : timeAgo(d);
+            statsEl.innerHTML = 'Generated: <span title="' + envelope.generated_at + '" style="cursor: help; border-bottom: 1px dotted #666;">' + relative + '</span>';
+        }
 
         requestAnimationFrame(function() {
             currentViz = initVisualization({
