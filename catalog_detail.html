@@ -843,9 +843,9 @@ header .catalog-hash {
 
         function updateInfo(d) {
             document.getElementById('info-path').textContent = d.data.path || '/';
-            document.getElementById('info-files').textContent = formatNumber(d.data.recursiveFiles);
-            document.getElementById('info-dirs').textContent = formatNumber(d.data.recursiveDirs);
-            document.getElementById('info-symlinks').textContent = formatNumber(d.data.recursiveSymlinks);
+            document.getElementById('info-files').textContent = formatNumber(d.data.files);
+            document.getElementById('info-dirs').textContent = formatNumber(d.data.dirs);
+            document.getElementById('info-symlinks').textContent = formatNumber(d.data.symlinks);
             document.getElementById('info-total').textContent = formatNumber(d.data.recursiveTotal);
             document.getElementById('info-size').textContent = formatBytes(d.data.recursiveSize);
         }
