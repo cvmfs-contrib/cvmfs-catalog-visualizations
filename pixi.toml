@@ -1,0 +1,16 @@
+[workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.8"
+pip = "*"
+zstandard = "*"
+
+[pypi-dependencies]
+cvmfsutils = { git = "https://github.com/chrisburr/python-cvmfsutils.git", branch = "dev" }
+
+[tasks]
+generate-viewer = "python generate.py --viewer --output viewer.html -q"
+generate-data = "python generate.py --data-only"
+generate-repos-json = "python generate_repos_json.py"

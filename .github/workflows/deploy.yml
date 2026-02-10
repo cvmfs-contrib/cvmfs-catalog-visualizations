@@ -47,64 +47,15 @@ jobs:
             cp -f new-results/*.json.zst site/data/ 2>/dev/null || true
           fi
 
-      - name: Checkout cvmfsutils
-        uses: actions/checkout@v4
-        with:
-          repository: chrisburr/python-cvmfsutils
-          ref: dev
-          path: cvmfsutils
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install cvmfsutils
-        run: pip install ./cvmfsutils
+      - uses: prefix-dev/setup-pixi@v0.8.8
 
       - name: Generate viewer page
-        run: catalog_visualizer --viewer --output site/index.html -q
+        run: pixi run python generate.py --viewer --output site/index.html -q
 
       - name: Generate repos.json manifest
-        run: |
-          python3 -c "
-          import json, os, zstandard as zstd
-          data_dir = 'site/data'
-          repos = []
-          for f in sorted(os.listdir(data_dir)):
-              if not f.endswith('.json.zst'):
-                  continue
-              path = os.path.join(data_dir, f)
-              size_bytes = os.path.getsize(path)
-              repo_name = f.removesuffix('.json.zst')
-              # Extract metadata from the envelope
-              try:
-                  raw = zstd.ZstdDecompressor().decompress(open(path, 'rb').read())
-                  envelope = json.loads(raw)
-                  generated_at = envelope.get('generated_at', '')
-                  max_catalogs = envelope.get('max_catalogs', 0)
-                  catalogs_downloaded = envelope.get('catalogs_downloaded', 0)
-                  tree = envelope.get('tree', {})
-                  # Check if incomplete
-                  incomplete = False
-                  if max_catalogs > 0 and catalogs_downloaded >= max_catalogs:
-                      incomplete = True
-                  # Check for is_large in tree (quick scan of JSON string)
-                  if not incomplete and '\"is_large\":true' in raw.decode('utf-8', errors='ignore'):
-                      incomplete = True
-              except Exception:
-                  generated_at = ''
-                  incomplete = False
-              repos.append({
-                  'name': repo_name,
-                  'generated_at': generated_at,
-                  'incomplete': incomplete,
-                  'data_file': 'data/' + f,
-                  'size_bytes': size_bytes,
-              })
-          with open('site/repos.json', 'w') as fh:
-              json.dump(repos, fh, separators=(',', ':'))
-          print(f'Generated repos.json with {len(repos)} repositories')
-          "
+        run: pixi run generate-repos-json site/data/
 
       - name: Save site cache
         uses: actions/cache/save@v4
