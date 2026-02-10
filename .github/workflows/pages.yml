@@ -78,7 +78,7 @@ jobs:
           ulimit -n 65536
           mkdir -p tree-cache
           pixi run generate-data \
-            "http://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
+            "https://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.json.zst" \
             --stop-threshold 1000GB \
             --no-cache \
