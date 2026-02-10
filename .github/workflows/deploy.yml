@@ -34,6 +34,10 @@ jobs:
             cp -r site/data /tmp/site-data
           fi
 
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.8
+
       - name: Download new artifacts
         uses: actions/download-artifact@v4
         with:
@@ -43,10 +47,6 @@ jobs:
           github-token: ${{ github.token }}
           run-id: ${{ github.event.client_payload.run_id }}
         continue-on-error: true
-
-      - uses: actions/checkout@v4
-
-      - uses: prefix-dev/setup-pixi@v0.8.8
 
       - name: Prepare site directory
         run: |
