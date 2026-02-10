@@ -386,7 +386,7 @@ header .catalog-hash {
     <!-- Visualization container (hidden until data loads) -->
     <div id="viz-container">
         <header>
-            <h1>Catalog Detail — <span class="catalog-hash" id="catalog-hash-display"></span></h1>
+            <h1><a id="repo-link" href="#" style="color: #e94560; text-decoration: none;"></a> — <span class="catalog-hash" id="catalog-hash-display"></span></h1>
         </header>
 
         <div class="path-bar">
@@ -721,10 +721,16 @@ header .catalog-hash {
     }
 
     // --- Render sunburst ---
-    function renderSunburst(treeData, catalogHash) {
+    function renderSunburst(treeData, catalogHash, repoUrl) {
         document.getElementById('input-form').style.display = 'none';
         document.getElementById('viz-container').classList.add('visible');
         document.getElementById('catalog-hash-display').textContent = catalogHash;
+
+        // Extract repo name from URL and link back to overview
+        var repoName = repoUrl.replace(/\/+$/, '').split('/').pop();
+        var repoLink = document.getElementById('repo-link');
+        repoLink.textContent = repoName;
+        repoLink.href = './?repo=' + encodeURIComponent(repoName);
 
         var chartContainer = document.querySelector('.chart-container');
         var size = Math.min(chartContainer.clientWidth - 32, chartContainer.clientHeight - 32, 800);
@@ -1022,7 +1028,7 @@ header .catalog-hash {
             computeRecursiveTotals(tree);
 
             hideLoading();
-            renderSunburst(tree, hash);
+            renderSunburst(tree, hash, repoUrl);
         } catch (err) {
             hideLoading();
             var errorEl = document.getElementById('form-error');
