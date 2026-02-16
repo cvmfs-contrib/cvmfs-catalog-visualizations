@@ -21,7 +21,7 @@ The main page shows the **catalog tree** for each repository as a sunburst chart
 
 ### Catalog directory detail
 
-The [catalog detail page](https://chrisburr.github.io/cvmfs-catalog-visualizations/catalog_detail.html) drills into a **single catalog** showing its directory structure as a sunburst, sized by entry count. It fetches and decompresses the CVMFS catalog SQLite database directly in the browser using `DecompressionStream` and [sql.js](https://github.com/sql-js/sql.js), with no server or build step required.
+The [catalog detail page](https://cvmfs-contrib.github.io/cvmfs-catalog-visualizations/catalog_detail.html) drills into a **single catalog** showing its directory structure as a sunburst, sized by entry count. It fetches and decompresses the CVMFS catalog SQLite database directly in the browser using `DecompressionStream` and [sql.js](https://github.com/sql-js/sql.js), with no server or build step required.
 
 Accessible via the "View directory detail" link in the catalog info panel, or directly with URL parameters:
 ```
