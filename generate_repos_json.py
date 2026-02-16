@@ -21,8 +21,8 @@ MB = 1024 * 1024
 
 def compute_catalog_stats(tree):
     """Walk tree and count catalogs in size buckets."""
+    catalogs_10mb = 0
     catalogs_25mb = 0
-    catalogs_50mb = 0
     catalogs_100mb = 0
     total_catalogs = 0
     max_catalog_bytes = 0
@@ -38,16 +38,16 @@ def compute_catalog_stats(tree):
                 max_catalog_bytes = size
             if size >= 100 * MB:
                 catalogs_100mb += 1
-            elif size >= 50 * MB:
-                catalogs_50mb += 1
             elif size >= 25 * MB:
                 catalogs_25mb += 1
+            elif size >= 10 * MB:
+                catalogs_10mb += 1
         for child in node.get("children", []):
             stack.append(child)
 
     return {
+        "catalogs_10mb": catalogs_10mb,
         "catalogs_25mb": catalogs_25mb,
-        "catalogs_50mb": catalogs_50mb,
         "catalogs_100mb": catalogs_100mb,
         "total_catalogs": total_catalogs,
         "max_catalog_mb": round(max_catalog_bytes / MB, 1),

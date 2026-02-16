@@ -349,9 +349,9 @@ function initVisualization(config) {
     // Color scale based on size
     function sizeColor(size) {
         const mb = size / (1024 * 1024);
-        if (mb < 2) return "#22c55e";
-        if (mb < 10) return "#eab308";
-        if (mb < 50) return "#f97316";
+        if (mb < 10) return "#22c55e";
+        if (mb < 25) return "#eab308";
+        if (mb < 100) return "#f97316";
         return "#ef4444";
     }
 
@@ -672,19 +672,19 @@ _VIZ_BODY_TEMPLATE = """\
                 <div class="legend-title">Size Legend</div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #22c55e;"></div>
-                    <span>&lt; 2 MB</span>
+                    <span>&lt; 10 MB</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #eab308;"></div>
-                    <span>2 - 10 MB</span>
+                    <span>10 - 25 MB</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #f97316;"></div>
-                    <span>10 - 50 MB</span>
+                    <span>25 - 100 MB</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #ef4444;"></div>
-                    <span>&gt; 50 MB</span>
+                    <span>&gt; 100 MB</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #c15b5b;"></div>
@@ -992,8 +992,8 @@ _VIEWER_CSS = """\
     vertical-align: middle;
     text-align: center;
 }
-.badge-25mb { background: #eab308; }
-.badge-50mb { background: #f97316; }
+.badge-10mb { background: #eab308; }
+.badge-25mb { background: #f97316; }
 .badge-100mb { background: #ef4444; }
 .catalog-count {
     color: #666;
@@ -1355,8 +1355,8 @@ _VIEWER_JS = """\
 
     function catalogBadges(r) {
         var html = '';
-        if (r.catalogs_25mb) html += '<span class="catalog-badge badge-25mb" title="' + r.catalogs_25mb + ' catalogs 25\u201350 MB">' + r.catalogs_25mb + '</span> ';
-        if (r.catalogs_50mb) html += '<span class="catalog-badge badge-50mb" title="' + r.catalogs_50mb + ' catalogs 50\u2013100 MB">' + r.catalogs_50mb + '</span> ';
+        if (r.catalogs_10mb) html += '<span class="catalog-badge badge-10mb" title="' + r.catalogs_10mb + ' catalogs 10\u201325 MB">' + r.catalogs_10mb + '</span> ';
+        if (r.catalogs_25mb) html += '<span class="catalog-badge badge-25mb" title="' + r.catalogs_25mb + ' catalogs 25\u2013100 MB">' + r.catalogs_25mb + '</span> ';
         if (r.catalogs_100mb) html += '<span class="catalog-badge badge-100mb" title="' + r.catalogs_100mb + ' catalogs \u2265 100 MB">' + r.catalogs_100mb + '</span> ';
         return html;
     }
@@ -1366,8 +1366,8 @@ _VIEWER_JS = """\
         switch (sortBy) {
             case 'large':
                 sorted.sort(function(a, b) {
-                    var sa = (a.catalogs_100mb || 0) * 100 + (a.catalogs_50mb || 0) * 10 + (a.catalogs_25mb || 0);
-                    var sb = (b.catalogs_100mb || 0) * 100 + (b.catalogs_50mb || 0) * 10 + (b.catalogs_25mb || 0);
+                    var sa = (a.catalogs_100mb || 0) * 100 + (a.catalogs_25mb || 0) * 10 + (a.catalogs_10mb || 0);
+                    var sb = (b.catalogs_100mb || 0) * 100 + (b.catalogs_25mb || 0) * 10 + (b.catalogs_10mb || 0);
                     return sb - sa;
                 });
                 break;
@@ -1594,8 +1594,8 @@ def generate_viewer_html() -> str:
     parts.append('            </div>\n')
     parts.append('            <div class="badge-legend">\n')
     parts.append('                Catalog sizes:\n')
-    parts.append('                <span class="catalog-badge badge-25mb">N</span> 25\u201350 MB\n')
-    parts.append('                <span class="catalog-badge badge-50mb">N</span> 50\u2013100 MB\n')
+    parts.append('                <span class="catalog-badge badge-10mb">N</span> 10\u201325 MB\n')
+    parts.append('                <span class="catalog-badge badge-25mb">N</span> 25\u2013100 MB\n')
     parts.append('                <span class="catalog-badge badge-100mb">N</span> \u2265 100 MB\n')
     parts.append('            </div>\n')
     parts.append('            <ul class="repo-list" id="repo-list"></ul>\n')
