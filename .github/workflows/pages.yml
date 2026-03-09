@@ -18,6 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        stratum1: [https://s1cern-cvmfs.openhtc.io]
         repo:
           - alice.cern.ch
           - alice-ocdb.cern.ch
@@ -57,6 +58,14 @@ jobs:
           - sw.hsf.org
           - sw-nightlies.hsf.org
           - unpacked.cern.ch
+        max_catalogs: [10000]
+        # additional repositories with different Stratum 1
+        include:
+          - stratum1: http://aws-eu-central-s1.eessi.science
+            repo: software.eessi.io
+            # EESSI has a separate catalog for each software installation,
+            # which exceeds 10k catalogs in total
+            max_catalogs: 100000
     steps:
       - name: Free disk space
         run: |
@@ -82,13 +91,13 @@ jobs:
           ulimit -n 65536
           mkdir -p tree-cache
           pixi run generate-data \
-            "https://s1cern-cvmfs.openhtc.io/cvmfs/${{ matrix.repo }}" \
+            "${{ matrix.stratum1 }}/cvmfs/${{ matrix.repo }}" \
             --output "${{ matrix.repo }}.json.zst" \
             --stop-threshold 1000GB \
             --no-cache \
             --no-browser \
             -j 16 \
-            --max-catalogs 10000 \
+            --max-catalogs ${{ matrix.max_catalogs }} \
             --previous-tree "tree-cache/${{ matrix.repo }}.json.zst" \
             --save-tree "tree-cache/${{ matrix.repo }}.json.zst"
 
