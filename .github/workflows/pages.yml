@@ -66,6 +66,8 @@ jobs:
             # EESSI has a separate catalog for each software installation,
             # which exceeds 10k catalogs in total
             max_catalogs: 100000
+          - stratum1: http://cvmfs-s1.computecanada.net
+            repo: soft.computecanada.ca
     steps:
       - name: Free disk space
         run: |
