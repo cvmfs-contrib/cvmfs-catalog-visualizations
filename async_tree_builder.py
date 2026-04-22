@@ -146,17 +146,20 @@ class AsyncCatalogTreeBuilder:
                 }
             )
 
-    def _is_catalog_in_cache(self, catalog_hash: str) -> bool:
+    def _is_catalog_in_cache(self, catalog_hash: str, algorithm: str = "sha1") -> bool:
         """Check if a catalog exists in the disk cache."""
         cache_path = self.repository._fetcher.get_cache_path()
         if not cache_path:
             return False
+        infix = self.repository.hash_algo_infix(algorithm)
         file_path = os.path.join(
-            cache_path, "data", catalog_hash[:2], catalog_hash[2:] + "C"
+            cache_path, "data", catalog_hash[:2], catalog_hash[2:] + infix + "C"
         )
         return os.path.exists(file_path)
 
-    async def _get_catalog_size(self, catalog_hash: str, ref_size: int) -> int:
+    async def _get_catalog_size(
+        self, catalog_hash: str, ref_size: int, algorithm: str = "sha1"
+    ) -> int:
         """Get catalog size, using HEAD request if ref_size is unknown.
 
         Args:
@@ -173,7 +176,7 @@ class AsyncCatalogTreeBuilder:
         async with self._lock:
             self._head_requests += 1
 
-        compressed_size = await self.repository.get_object_size(catalog_hash, "C")
+        compressed_size = await self.repository.get_object_size(catalog_hash, "C", algorithm)
         if compressed_size is not None:
             return compressed_size
 
@@ -381,7 +384,7 @@ class AsyncCatalogTreeBuilder:
             self._catalogs_found += 1
 
         # Get size - use HEAD request if ref.size is 0
-        child_size = await self._get_catalog_size(ref.hash, ref.size)
+        child_size = await self._get_catalog_size(ref.hash, ref.size, ref.algorithm)
         is_large = child_size > self.stop_threshold
 
         if is_large:
@@ -413,10 +416,12 @@ class AsyncCatalogTreeBuilder:
         # Only descend into non-large catalogs
         if not is_large:
             # Check if in cache before retrieving
-            in_cache = self._is_catalog_in_cache(ref.hash)
+            in_cache = self._is_catalog_in_cache(ref.hash, ref.algorithm)
 
             # Download this catalog
-            child_catalog, _ = await self.repository.retrieve_catalog(ref.hash)
+            child_catalog, _ = await self.repository.retrieve_catalog(
+                ref.hash, ref.algorithm
+            )
 
             async with self._lock:
                 self._catalogs_downloaded += 1
