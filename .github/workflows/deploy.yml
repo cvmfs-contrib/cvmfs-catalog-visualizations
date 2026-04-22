@@ -21,7 +21,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Restore previous site
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: site
           key: site-never-matches
@@ -34,12 +34,12 @@ jobs:
             cp -r site/data /tmp/site-data
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: prefix-dev/setup-pixi@v0.8.8
+      - uses: prefix-dev/setup-pixi@v0.9.4
 
       - name: Download new artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: new-results
           pattern: viz-*
@@ -71,19 +71,19 @@ jobs:
         run: pixi run generate-repos-json site/data/
 
       - name: Save site cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: site
           key: site-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v6
         with:
           path: site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
