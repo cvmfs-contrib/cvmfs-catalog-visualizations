@@ -36,7 +36,6 @@ jobs:
           - cms-griddata.cern.ch
           - cms-ib.cern.ch
           - compass.cern.ch
-          - conda-cache.cern.ch
           - cvmfs-config.cern.ch
           - delphi.cern.ch
           - dphep.cern.ch
@@ -62,6 +61,10 @@ jobs:
         max_catalogs: [10000]
         # additional repositories with different Stratum 1
         include:
+          - stratum1: [https://s1cern-cvmfs.openhtc.io]
+            repo: conda-cache.cern.ch
+            # conda-cache.cern.ch has a huge number of catalogs to backfill
+            max_catalogs: 100000
           - stratum1: http://aws-eu-central-s1.eessi.science
             repo: software.eessi.io
             # EESSI has a separate catalog for each software installation,
