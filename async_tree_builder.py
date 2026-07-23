@@ -128,9 +128,17 @@ class AsyncCatalogTreeBuilder:
             algorithm=getattr(self.repository.manifest, "hash_algorithm", "sha1"),
         )
 
+        stats = await self._read_catalog_stats(root_catalog)
+        if stats is not None:
+            root_node.entries = stats["entries"]
+            root_node.chunks = stats["chunks"]
+            root_node.chunked_files = stats["chunked_files"]
+
         # Only descend if root is not too large and depth allows
         if not root_node.is_large and (self.max_depth is None or self.max_depth > 0):
             await self._populate_children_async(root_node, root_catalog)
+        else:
+            await root_catalog.close()
 
         recalculate_tree(root_node)
         return root_node
@@ -158,6 +166,35 @@ class AsyncCatalogTreeBuilder:
                     "bytes_from_cache": self._bytes_from_cache,
                 }
             )
+
+    @staticmethod
+    async def _read_catalog_stats(catalog) -> Optional[dict]:
+        """Read entry/chunk counters from a catalog's statistics table.
+
+        Returns None if the catalog predates the statistics schema.
+        """
+        try:
+            counters = {}
+            async with catalog._db.execute(
+                "SELECT counter, value FROM statistics"
+            ) as cursor:
+                async for row in cursor:
+                    counters[row[0]] = row[1]
+            if not counters:
+                return None
+            entries = (
+                counters.get("self_regular", 0)
+                + counters.get("self_dir", 0)
+                + counters.get("self_symlink", 0)
+                + counters.get("self_special", 0)
+            )
+            return {
+                "entries": entries,
+                "chunks": counters.get("self_chunks", 0),
+                "chunked_files": counters.get("self_chunked", 0),
+            }
+        except Exception:
+            return None
 
     def _is_catalog_in_cache(self, catalog_hash: str, algorithm: str = "sha1") -> bool:
         """Check if a catalog exists in the disk cache."""
@@ -447,6 +484,12 @@ class AsyncCatalogTreeBuilder:
                 if in_cache:
                     self._cache_hits += 1
                     self._bytes_from_cache += catalog_size
+
+            stats = await self._read_catalog_stats(child_catalog)
+            if stats is not None:
+                child_node.entries = stats["entries"]
+                child_node.chunks = stats["chunks"]
+                child_node.chunked_files = stats["chunked_files"]
 
             self._report_progress(ref.root_path)
 

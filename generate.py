@@ -27,6 +27,11 @@ from html_generator import (
     generate_viewer_html,
 )
 
+# Bump when CatalogNode gains fields that can only be filled by re-reading
+# catalogs (cached subtrees are grafted without downloading, so a stale
+# format would never be backfilled).
+TREE_CACHE_FORMAT = 2
+
 
 def _format_bytes(bytes_val: int) -> str:
     """Format bytes as human-readable string."""
@@ -401,7 +406,8 @@ Examples:
             raw = json.loads(data)
             # Validate metadata matches current parameters
             if (
-                raw.get("stop_threshold") == args.stop_threshold
+                raw.get("format") == TREE_CACHE_FORMAT
+                and raw.get("stop_threshold") == args.stop_threshold
                 and raw.get("max_depth") == args.max_depth
             ):
                 previous_tree = CatalogNode.from_dict(raw["tree"])
@@ -432,6 +438,7 @@ Examples:
         try:
             args.save_tree.parent.mkdir(parents=True, exist_ok=True)
             envelope = {
+                "format": TREE_CACHE_FORMAT,
                 "stop_threshold": args.stop_threshold,
                 "max_depth": args.max_depth,
                 "tree": root_node.to_dict(),
