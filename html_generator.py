@@ -373,6 +373,10 @@ function initVisualization(config) {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
     }
 
+    function formatNumber(n) {
+        return n.toLocaleString("en-US");
+    }
+
     // Create hierarchy - siblings share parent's arc equally
     const root = d3.hierarchy(config.data);
     root.value = 1;
@@ -489,6 +493,18 @@ function initVisualization(config) {
         document.getElementById("info-cost").textContent = formatBytes(d.data.cumulative_cost || 0);
         document.getElementById("info-depth").textContent = d.data.depth || 0;
         document.getElementById("info-hash").textContent = d.data.hash || "-";
+
+        // Entry/chunk counters (only present for catalogs read with a recent generator)
+        document.getElementById("info-entries").textContent =
+            d.data.entries != null ? formatNumber(d.data.entries) : "-";
+        let chunksText = "-";
+        if (d.data.chunks != null) {
+            chunksText = formatNumber(d.data.chunks);
+            if (d.data.chunked_files) {
+                chunksText += " (" + formatNumber(d.data.chunked_files) + " files)";
+            }
+        }
+        document.getElementById("info-chunks").textContent = chunksText;
 
         const detailLink = document.getElementById("detail-link");
         if (detailLink && d.data.hash && !d.data.is_virtual && config.repoUrl) {
@@ -709,6 +725,14 @@ _VIZ_BODY_TEMPLATE = """\
                     <span class="info-value" id="info-size">-</span>
                 </div>
                 <div class="info-row">
+                    <span class="info-label">Catalog Entries</span>
+                    <span class="info-value" id="info-entries">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">File Chunks</span>
+                    <span class="info-value" id="info-chunks">-</span>
+                </div>
+                <div class="info-row">
                     <span class="info-label">Cumulative Cost</span>
                     <span class="info-value" id="info-cost">-</span>
                 </div>
@@ -740,6 +764,8 @@ _VIZ_BODY_TEMPLATE = """\
                 <strong>Why are catalogs large?</strong><br>
                 Catalog size = metadata entries, not file sizes.
                 A catalog with many files/directories has a large database.
+                Large files are also split into chunks (one row per piece),
+                so a few very large files can dominate a catalog.
             </div>
 
             <div class="stats">
@@ -1298,6 +1324,8 @@ _VIEWER_JS = """\
         // Reset info panel
         document.getElementById("info-path").textContent = "/";
         document.getElementById("info-size").textContent = "-";
+        document.getElementById("info-entries").textContent = "-";
+        document.getElementById("info-chunks").textContent = "-";
         document.getElementById("info-cost").textContent = "-";
         document.getElementById("info-depth").textContent = "-";
         document.getElementById("info-hash").textContent = "-";

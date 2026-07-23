@@ -7,7 +7,7 @@ Traverses the catalog hierarchy and calculates cumulative download costs.
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -24,6 +24,11 @@ class CatalogNode:
     is_root: bool = False
     is_virtual: bool = False  # True for intermediate path nodes without a catalog
     algorithm: str = "sha1"
+    # Counters from the catalog's statistics table (None if not downloaded
+    # or the catalog predates the statistics schema)
+    entries: Optional[int] = None
+    chunks: Optional[int] = None
+    chunked_files: Optional[int] = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization.
@@ -42,6 +47,12 @@ class CatalogNode:
             d["is_virtual"] = True
         if self.algorithm != "sha1":
             d["algorithm"] = self.algorithm
+        if self.entries is not None:
+            d["entries"] = self.entries
+        if self.chunks is not None:
+            d["chunks"] = self.chunks
+        if self.chunked_files is not None:
+            d["chunked_files"] = self.chunked_files
         if self.children:
             d["children"] = [child.to_dict() for child in self.children]
         return d
@@ -65,6 +76,9 @@ class CatalogNode:
             is_root=data.get("is_root", False),
             is_virtual=data.get("is_virtual", False),
             algorithm=data.get("algorithm", "sha1"),
+            entries=data.get("entries"),
+            chunks=data.get("chunks"),
+            chunked_files=data.get("chunked_files"),
         )
 
     def find_or_create_child(self, path_segment: str, full_path: str, depth: int) -> "CatalogNode":

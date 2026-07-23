@@ -432,10 +432,18 @@ header .catalog-hash {
                         <span class="info-label">Size (recursive)</span>
                         <span class="info-value" id="info-size">-</span>
                     </div>
+                    <div class="info-row" id="info-chunks-row" style="display: none;">
+                        <span class="info-label">File chunks (recursive)</span>
+                        <span class="info-value" id="info-chunks">-</span>
+                    </div>
                 </div>
 
                 <h2>Largest Directories</h2>
                 <div class="info-panel" id="largest-dirs">
+                </div>
+
+                <h2 id="chunked-dirs-title" style="display: none;">Most Chunked Directories</h2>
+                <div class="info-panel" id="chunked-dirs" style="display: none;">
                 </div>
 
                 <div class="instructions">
@@ -617,16 +625,52 @@ header .catalog-hash {
             "FROM catalog GROUP BY parent_1, parent_2"
         );
 
+        // 3. Chunk rows per parent directory. Large files are split into
+        // chunks (one row each), which can dominate the catalog's size.
+        var chunkResult = [];
+        try {
+            chunkResult = db.exec(
+                "SELECT c.parent_1, c.parent_2, COUNT(*) as chunk_rows, " +
+                "COUNT(DISTINCT c.md5path_1 || ',' || c.md5path_2) as chunked_files " +
+                "FROM chunks ch JOIN catalog c " +
+                "ON c.md5path_1 = ch.md5path_1 AND c.md5path_2 = ch.md5path_2 " +
+                "GROUP BY c.parent_1, c.parent_2"
+            );
+        } catch (e) {
+            // chunks table may not exist in old catalog schemas
+        }
+
+        // 4. Precomputed counters (for chunked data size in the stats line)
+        var statsCounters = {};
+        try {
+            var statsResult = db.exec("SELECT counter, value FROM statistics");
+            if (statsResult.length > 0) {
+                statsResult[0].values.forEach(function(row) {
+                    statsCounters[row[0]] = row[1];
+                });
+            }
+        } catch (e) {
+            // statistics table may not exist in old catalog schemas
+        }
+
         db.close();
-        return { dirResult: dirResult, countResult: countResult, rootPrefix: rootPrefix };
+        return {
+            dirResult: dirResult,
+            countResult: countResult,
+            chunkResult: chunkResult,
+            statsCounters: statsCounters,
+            rootPrefix: rootPrefix
+        };
     }
 
     // --- Build directory tree ---
-    function buildTree(dirResult, countResult, rootPrefix) {
+    function buildTree(dirResult, countResult, chunkResult, rootPrefix) {
         // Map: "md5path_1,md5path_2" -> { name, md5key, parentKey, children: [] }
         var dirMap = {};
         // Map: "parent_1,parent_2" -> { files, dirs, symlinks, totalSize }
         var countMap = {};
+        // Map: "parent_1,parent_2" -> { chunkRows, chunkedFiles }
+        var chunkMap = {};
 
         if (dirResult.length > 0) {
             var dirRows = dirResult[0].values;
@@ -653,6 +697,18 @@ header .catalog-hash {
                     files: row[3] || 0,
                     symlinks: row[4] || 0,
                     totalSize: row[5] || 0
+                };
+            }
+        }
+
+        if (chunkResult.length > 0) {
+            var chunkRows = chunkResult[0].values;
+            for (var i = 0; i < chunkRows.length; i++) {
+                var row = chunkRows[i];
+                var key = row[0] + ',' + row[1];
+                chunkMap[key] = {
+                    chunkRows: row[2] || 0,
+                    chunkedFiles: row[3] || 0
                 };
             }
         }
@@ -684,6 +740,7 @@ header .catalog-hash {
         // Build D3-compatible tree recursively
         function buildNode(entry, path) {
             var counts = countMap[entry.md5key] || { files: 0, dirs: 0, symlinks: 0, totalSize: 0 };
+            var chunks = chunkMap[entry.md5key] || { chunkRows: 0, chunkedFiles: 0 };
             var node = {
                 name: entry.name || path,
                 path: path,
@@ -691,6 +748,8 @@ header .catalog-hash {
                 dirs: counts.dirs,
                 symlinks: counts.symlinks,
                 totalSize: counts.totalSize,
+                chunkRows: chunks.chunkRows,
+                chunkedFiles: chunks.chunkedFiles,
                 children: []
             };
 
@@ -719,6 +778,8 @@ header .catalog-hash {
         node.recursiveDirs = node.dirs;
         node.recursiveSymlinks = node.symlinks;
         node.recursiveSize = node.totalSize;
+        node.recursiveChunkRows = node.chunkRows;
+        node.recursiveChunkedFiles = node.chunkedFiles;
 
         for (var i = 0; i < node.children.length; i++) {
             computeRecursiveTotals(node.children[i]);
@@ -726,6 +787,8 @@ header .catalog-hash {
             node.recursiveDirs += node.children[i].recursiveDirs;
             node.recursiveSymlinks += node.children[i].recursiveSymlinks;
             node.recursiveSize += node.children[i].recursiveSize;
+            node.recursiveChunkRows += node.children[i].recursiveChunkRows;
+            node.recursiveChunkedFiles += node.children[i].recursiveChunkedFiles;
         }
 
         node.recursiveTotal = node.recursiveFiles + node.recursiveDirs + node.recursiveSymlinks;
@@ -733,10 +796,17 @@ header .catalog-hash {
     }
 
     // --- Render sunburst ---
-    function renderSunburst(treeData, catalogHash, repoUrl) {
+    function renderSunburst(treeData, catalogHash, repoUrl, statsCounters) {
         document.getElementById('input-form').style.display = 'none';
         document.getElementById('viz-container').classList.add('visible');
         document.getElementById('catalog-hash-display').textContent = catalogHash;
+
+        var hasChunks = treeData.recursiveChunkRows > 0;
+        if (hasChunks) {
+            document.getElementById('info-chunks-row').style.display = '';
+            document.getElementById('chunked-dirs-title').style.display = '';
+            document.getElementById('chunked-dirs').style.display = '';
+        }
 
         // Extract repo name from URL and link back to overview
         var repoName = repoUrl.replace(/\/+$/, '').split('/').pop();
@@ -866,6 +936,11 @@ header .catalog-hash {
             document.getElementById('info-symlinks').textContent = formatNumber(d.data.symlinks);
             document.getElementById('info-total').textContent = formatNumber(d.data.recursiveTotal);
             document.getElementById('info-size').textContent = formatBytes(d.data.recursiveSize);
+            var chunksText = formatNumber(d.data.recursiveChunkRows);
+            if (d.data.recursiveChunkedFiles > 0) {
+                chunksText += ' in ' + formatNumber(d.data.recursiveChunkedFiles) + ' files';
+            }
+            document.getElementById('info-chunks').textContent = chunksText;
         }
 
         function updateLargestDirs(hierarchyNode) {
@@ -875,6 +950,20 @@ header .catalog-hash {
                 .sort(function(a, b) { return b.count - a.count; })
                 .slice(0, 10);
 
+            renderDirList('largest-dirs', dirs, hierarchyNode);
+        }
+
+        function updateChunkedDirs(hierarchyNode) {
+            var dirs = hierarchyNode.descendants()
+                .filter(function(d) { return d !== hierarchyNode && d.data.recursiveChunkRows > 0; })
+                .map(function(d) { return { path: d.data.path, count: d.data.recursiveChunkRows }; })
+                .sort(function(a, b) { return b.count - a.count; })
+                .slice(0, 10);
+
+            renderDirList('chunked-dirs', dirs, hierarchyNode);
+        }
+
+        function renderDirList(containerId, dirs, hierarchyNode) {
             var prefix = hierarchyNode.data.path || '/';
             var html = dirs.map(function(c) {
                 var displayPath = c.path;
@@ -886,9 +975,10 @@ header .catalog-hash {
                     '<span class="dir-path">' + displayPath + '</span>' +
                 '</div>';
             }).join('');
-            document.getElementById('largest-dirs').innerHTML = html;
+            var container = document.getElementById(containerId);
+            container.innerHTML = html;
 
-            document.querySelectorAll('.dir-item').forEach(function(item) {
+            container.querySelectorAll('.dir-item').forEach(function(item) {
                 item.addEventListener('click', function() {
                     var targetPath = this.dataset.path;
                     var targetNode = root.descendants().find(function(d) { return d.data.path === targetPath; });
@@ -911,6 +1001,7 @@ header .catalog-hash {
             hoveredNode = null;
             updateInfo(p);
             updateLargestDirs(p);
+            if (hasChunks) updateChunkedDirs(p);
             draw();
         }
 
@@ -983,9 +1074,18 @@ header .catalog-hash {
         })();
 
         // Stats
-        document.getElementById('stats-info').textContent =
+        var statsText =
             'Catalog entries: ' + formatNumber(root.data.recursiveTotal) +
             ' | Directories: ' + formatNumber(root.descendants().length);
+        if (hasChunks) {
+            statsText += ' | File chunks: ' + formatNumber(root.data.recursiveChunkRows) +
+                ' (' + formatNumber(root.data.recursiveChunkedFiles) + ' files';
+            if (statsCounters && statsCounters.self_chunked_size > 0) {
+                statsText += ', ' + formatBytes(statsCounters.self_chunked_size) + ' of data';
+            }
+            statsText += ')';
+        }
+        document.getElementById('stats-info').textContent = statsText;
 
         // Click to copy path
         document.getElementById('info-path').addEventListener('click', function() {
@@ -1003,6 +1103,7 @@ header .catalog-hash {
         // Initial render
         updateInfo(root);
         updateLargestDirs(root);
+        if (hasChunks) updateChunkedDirs(root);
         draw();
 
         // Handle back/forward navigation
@@ -1036,11 +1137,11 @@ header .catalog-hash {
             var result = await queryCatalog(dbBytes);
 
             setIndeterminate('Building directory tree...');
-            var tree = buildTree(result.dirResult, result.countResult, result.rootPrefix);
+            var tree = buildTree(result.dirResult, result.countResult, result.chunkResult, result.rootPrefix);
             computeRecursiveTotals(tree);
 
             hideLoading();
-            renderSunburst(tree, hash, repoUrl);
+            renderSunburst(tree, hash, repoUrl, result.statsCounters);
         } catch (err) {
             hideLoading();
             var errorEl = document.getElementById('form-error');
