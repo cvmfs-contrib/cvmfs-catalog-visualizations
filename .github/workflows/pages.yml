@@ -73,6 +73,15 @@ jobs:
           - stratum1: https://cvmfs-s1.computecanada.net
             repo: soft.computecanada.ca
             max_catalogs: 10000
+          - stratum1: https://s1osggoc-cvmfs.openhtc.io
+            repo: eic.opensciencegrid.org
+            max_catalogs: 10000
+          - stratum1: https://s1osggoc-cvmfs.openhtc.io
+            repo: oasis.opensciencegrid.org
+            max_catalogs: 10000
+          - stratum1: https://s1osggoc-cvmfs.openhtc.io
+            repo: singularity.opensciencegrid.org
+            max_catalogs: 100000
     steps:
       - name: Free disk space
         run: |
